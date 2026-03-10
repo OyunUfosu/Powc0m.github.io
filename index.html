@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Powc0m</title>
+  <link rel="stylesheet" href="style.css" />
+  <!-- Google Fonts: DM Sans (UI) + Playfair Display (branding) -->
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=Playfair+Display:wght@700&display=swap" rel="stylesheet" />
+  <!-- jsPDF for PDF export -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <!-- html2canvas for image/PDF rendering -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <!-- Sortable.js for drag-and-drop reordering -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
+</head>
+<body>
+
+  <!-- ============================================================
+       TOP TOOLBAR
+  ============================================================ -->
+  <header id="toolbar">
+    <div class="toolbar-brand">
+      <span class="brand-icon">Powc0m</span>
+    </div>
+
+    <nav class="toolbar-actions">
+      <button class="tb-btn" id="btn-new"        title="New Presentation">
+        <svg viewBox="0 0 20 20"><path d="M11 2H5a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V9l-6-7z"/><path d="M11 2v7h6"/></svg>
+        New
+      </button>
+      <button class="tb-btn" id="btn-save"       title="Save as JSON">
+        <svg viewBox="0 0 20 20"><path d="M17 16v1a1 1 0 01-1 1H4a1 1 0 01-1-1v-1"/><polyline points="7,10 10,13 13,10"/><line x1="10" y1="3" x2="10" y2="13"/></svg>
+        Save
+      </button>
+      <button class="tb-btn" id="btn-import"     title="Import JSON">
+        <svg viewBox="0 0 20 20"><path d="M17 16v1a1 1 0 01-1 1H4a1 1 0 01-1-1v-1"/><polyline points="7,6 10,3 13,6"/><line x1="10" y1="3" x2="10" y2="13"/></svg>
+        Import
+        <input type="file" id="file-import" accept=".json" style="display:none"/>
+      </button>
+
+      <div class="tb-divider"></div>
+
+      <div class="tb-dropdown-wrap">
+        <button class="tb-btn" id="btn-export"   title="Export">
+          <svg viewBox="0 0 20 20"><rect x="3" y="3" width="14" height="14" rx="2"/><path d="M7 10h6M10 7v6"/></svg>
+          Export ▾
+        </button>
+        <div class="tb-dropdown" id="export-menu">
+          <button class="dd-item" id="export-json">Export as JSON</button>
+          <button class="dd-item" id="export-pdf">Export as PDF</button>
+          <button class="dd-item" id="export-png">Export as PNG (all slides)</button>
+        </div>
+      </div>
+
+      <button class="tb-btn tb-btn-accent" id="btn-preview" title="Fullscreen Preview">
+        <svg viewBox="0 0 20 20"><polygon points="5,3 19,10 5,17"/></svg>
+        Preview
+      </button>
+    </nav>
+
+    <!-- Presentation title (editable) -->
+    <div class="toolbar-title-wrap">
+      <input type="text" id="presentation-title" value="Untitled Presentation" spellcheck="false" />
+    </div>
+  </header>
+
+  <!-- ============================================================
+       MAIN LAYOUT
+  ============================================================ -->
+  <main id="app-layout">
+
+    <!-- LEFT: slide thumbnails sidebar -->
+    <aside id="sidebar">
+      <div class="sidebar-header">
+        <span>Slides</span>
+        <button id="btn-add-slide" title="Add Slide">＋</button>
+      </div>
+      <div id="slide-list">
+        <!-- Thumbnails injected by JS -->
+      </div>
+    </aside>
+
+    <!-- CENTER: editing canvas -->
+    <section id="canvas-area">
+      <div id="canvas-toolbar">
+        <!-- Insert tools -->
+        <div class="ctb-group">
+          <button class="ctb-btn" id="tool-select"    title="Select (V)" data-tool="select">
+            <svg viewBox="0 0 20 20"><path d="M4 3l13 7-7 2-3 7z"/></svg>
+          </button>
+          <button class="ctb-btn" id="tool-text"      title="Text (T)"   data-tool="text">
+            <svg viewBox="0 0 20 20"><text x="3" y="16" font-size="14" font-weight="700" fill="currentColor">T</text></svg>
+          </button>
+          <button class="ctb-btn" id="tool-rect"      title="Rectangle"  data-tool="rect">
+            <svg viewBox="0 0 20 20"><rect x="3" y="5" width="14" height="10" rx="1" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+          </button>
+          <button class="ctb-btn" id="tool-circle"    title="Circle"     data-tool="circle">
+            <svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="7" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+          </button>
+          <button class="ctb-btn" id="tool-image"     title="Insert Image" data-tool="image">
+            <svg viewBox="0 0 20 20"><rect x="2" y="4" width="16" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="7" cy="8" r="1.5" fill="currentColor"/><path d="M2 14l4-4 4 4 3-3 5 5" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+            <input type="file" id="file-image" accept="image/*" style="display:none"/>
+          </button>
+        </div>
+
+        <div class="ctb-divider"></div>
+
+        <!-- Text formatting -->
+        <div class="ctb-group" id="fmt-tools">
+          <select id="fmt-fontsize" title="Font Size">
+            <option>12</option><option>14</option><option>16</option>
+            <option selected>18</option><option>20</option><option>24</option>
+            <option>28</option><option>32</option><option>36</option>
+            <option>48</option><option>64</option><option>72</option>
+          </select>
+          <button class="ctb-btn fmt-btn" data-cmd="bold"      title="Bold"><b>B</b></button>
+          <button class="ctb-btn fmt-btn" data-cmd="italic"    title="Italic"><i>I</i></button>
+          <button class="ctb-btn fmt-btn" data-cmd="underline" title="Underline"><u>U</u></button>
+          <label class="color-btn" title="Font Color">
+            <svg viewBox="0 0 20 20"><text x="3" y="15" font-size="12" font-weight="700" fill="currentColor">A</text><rect x="2" y="15" width="16" height="3" id="font-color-bar" fill="#e74c3c"/></svg>
+            <input type="color" id="fmt-color" value="#e74c3c" />
+          </label>
+        </div>
+
+        <div class="ctb-divider"></div>
+
+        <!-- Background color of slide -->
+        <div class="ctb-group">
+          <label class="ctb-label" title="Slide Background">
+            <svg viewBox="0 0 20 20"><rect x="2" y="2" width="16" height="16" rx="2" id="bg-color-rect" fill="#ffffff" stroke="currentColor" stroke-width="1.5"/></svg>
+            BG
+            <input type="color" id="slide-bg-color" value="#ffffff" />
+          </label>
+        </div>
+
+        <div class="ctb-divider"></div>
+
+        <!-- Arrange / Delete -->
+        <div class="ctb-group">
+          <button class="ctb-btn" id="btn-bring-front" title="Bring to Front">↑</button>
+          <button class="ctb-btn" id="btn-send-back"   title="Send to Back">↓</button>
+          <button class="ctb-btn danger" id="btn-delete-el" title="Delete Element">✕</button>
+        </div>
+
+        <div class="ctb-divider"></div>
+        <!-- Undo / Redo -->
+        <div class="ctb-group">
+          <button class="ctb-btn" id="btn-undo" title="Undo (Ctrl+Z)">↩</button>
+          <button class="ctb-btn" id="btn-redo" title="Redo (Ctrl+Y)">↪</button>
+        </div>
+      </div>
+
+      <!-- The actual slide viewport -->
+      <div id="canvas-viewport">
+        <div id="slide-canvas">
+          <!-- Elements rendered by JS -->
+        </div>
+        <!-- Alignment guides (rendered dynamically) -->
+        <div id="guide-h" class="guide guide-h"></div>
+        <div id="guide-v" class="guide guide-v"></div>
+      </div>
+
+      <div id="canvas-statusbar">
+        <span id="status-slide-info">Slide 1 / 1</span>
+        <span id="status-zoom">100%</span>
+        <span id="status-element-info"></span>
+      </div>
+    </section>
+
+    <!-- RIGHT: Properties panel -->
+    <aside id="properties-panel">
+      <div class="panel-section" id="panel-no-selection">
+        <p class="panel-hint">Select an element to edit its properties.</p>
+      </div>
+
+      <div class="panel-section hidden" id="panel-element">
+        <h3 class="panel-title">Element</h3>
+
+        <label class="prop-label">X (px)
+          <input type="number" class="prop-input" id="prop-x" />
+        </label>
+        <label class="prop-label">Y (px)
+          <input type="number" class="prop-input" id="prop-y" />
+        </label>
+        <label class="prop-label">Width (px)
+          <input type="number" class="prop-input" id="prop-w" />
+        </label>
+        <label class="prop-label">Height (px)
+          <input type="number" class="prop-input" id="prop-h" />
+        </label>
+        <label class="prop-label">Rotation (°)
+          <input type="number" class="prop-input" id="prop-rot" value="0" />
+        </label>
+        <label class="prop-label">Opacity
+          <input type="range" min="0" max="1" step="0.01" id="prop-opacity" value="1" />
+        </label>
+
+        <!-- Shape / Image fill -->
+        <div id="panel-shape-props">
+          <h3 class="panel-title">Fill & Stroke</h3>
+          <label class="prop-label">Fill Color
+            <input type="color" class="prop-input" id="prop-fill" value="#4f86f7" />
+          </label>
+          <label class="prop-label">Border Color
+            <input type="color" class="prop-input" id="prop-stroke" value="#2c3e50" />
+          </label>
+          <label class="prop-label">Border Width
+            <input type="number" class="prop-input" id="prop-stroke-width" value="0" min="0" max="20" />
+          </label>
+          <label class="prop-label">Border Radius
+            <input type="number" class="prop-input" id="prop-border-radius" value="0" min="0" />
+          </label>
+        </div>
+
+        <!-- Text props -->
+        <div id="panel-text-props">
+          <h3 class="panel-title">Text</h3>
+          <label class="prop-label">Font Size
+            <input type="number" class="prop-input" id="prop-fontsize" value="18" min="6" max="200" />
+          </label>
+          <label class="prop-label">Font Color
+            <input type="color" class="prop-input" id="prop-fontcolor" value="#1a1a2e" />
+          </label>
+          <label class="prop-label">Font Family
+            <select class="prop-input" id="prop-fontfamily">
+              <option value="DM Sans, sans-serif">DM Sans</option>
+              <option value="Playfair Display, serif">Playfair Display</option>
+              <option value="Georgia, serif">Georgia</option>
+              <option value="'Courier New', monospace">Courier New</option>
+              <option value="Arial, sans-serif">Arial</option>
+              <option value="Verdana, sans-serif">Verdana</option>
+            </select>
+          </label>
+          <label class="prop-label">Align
+            <div class="align-btns">
+              <button class="align-btn" data-align="left">⬅</button>
+              <button class="align-btn" data-align="center">⬛</button>
+              <button class="align-btn" data-align="right">➡</button>
+            </div>
+          </label>
+        </div>
+
+        <button class="prop-btn danger" id="prop-delete">Delete Element</button>
+        <button class="prop-btn" id="prop-duplicate">Duplicate Element</button>
+      </div>
+
+      <!-- Slide section always visible -->
+      <div class="panel-section" id="panel-slide">
+        <h3 class="panel-title">Current Slide</h3>
+        <label class="prop-label">Background
+          <input type="color" class="prop-input" id="panel-slide-bg" value="#ffffff" />
+        </label>
+        <button class="prop-btn" id="panel-dup-slide">Duplicate Slide</button>
+        <button class="prop-btn danger" id="panel-del-slide">Delete Slide</button>
+      </div>
+    </aside>
+
+  </main>
+
+  <!-- ============================================================
+       PREVIEW OVERLAY (fullscreen slideshow)
+  ============================================================ -->
+  <div id="preview-overlay" class="hidden">
+    <div id="preview-slide-container">
+      <div id="preview-slide"></div>
+    </div>
+    <div id="preview-controls">
+      <button id="prev-slide-btn">&#8592;</button>
+      <span id="preview-counter">1 / 1</span>
+      <button id="next-slide-btn">&#8594;</button>
+      <button id="exit-preview-btn">✕ Exit</button>
+    </div>
+    <div id="preview-hint">Use ← → Arrow Keys to navigate</div>
+  </div>
+
+  <!-- ============================================================
+       MODAL: Confirm / Alert
+  ============================================================ -->
+  <div id="modal-overlay" class="hidden">
+    <div id="modal-box">
+      <p id="modal-message"></p>
+      <div id="modal-btns">
+        <button id="modal-confirm" class="prop-btn">OK</button>
+        <button id="modal-cancel"  class="prop-btn">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       SCRIPTS (order matters)
+  ============================================================ -->
+  <script src="utils/history.js"></script>
+  <script src="utils/export.js"></script>
+  <script src="utils/import.js"></script>
+  <script src="components/element.js"></script>
+  <script src="components/canvas.js"></script>
+  <script src="components/sidebar.js"></script>
+  <script src="components/properties.js"></script>
+  <script src="components/preview.js"></script>
+  <script src="components/toolbar.js"></script>
+  <script src="slideManager.js"></script>
+  <script src="editor.js"></script>
+</body>
+</html>
